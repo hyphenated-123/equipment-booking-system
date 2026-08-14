@@ -1,7 +1,13 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Get the backend directory path
+backend_dir = Path(__file__).resolve().parent.parent
+env_file = backend_dir / ".env"
+
+# Load .env file explicitly
+load_dotenv(dotenv_path=env_file)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
