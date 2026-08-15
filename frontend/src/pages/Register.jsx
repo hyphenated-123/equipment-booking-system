@@ -75,6 +75,14 @@ function Register() {
           Login
         </Link>
       </p>
+
+      <p className="mt-2 text-center text-sm">
+        Register as an{" "}
+        <Link to="/register/admin" className="text-blue-600">
+          admin
+        </Link>
+        ?
+      </p>
     </main>
   );
 }

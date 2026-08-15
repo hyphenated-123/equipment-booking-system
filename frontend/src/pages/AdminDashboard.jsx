@@ -5,43 +5,45 @@ import {
 
 import api from "../services/api";
 
+import { useAuth } from "../context/AuthContext";
 
 function AdminDashboard() {
-  const [resources, setResources] =
-    useState([]);
+  const [activeTab, setActiveTab] = useState("resources");
 
-  const [stats, setStats] =
-    useState(null);
+  const [resources, setResources] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [stats, setStats] = useState(null);
 
-  const [name, setName] =
-    useState("");
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("laptop");
+  const [description, setDescription] = useState("");
+  const [quantity, setQuantity] = useState(1);
 
-  const [category, setCategory] =
-    useState("laptop");
+  const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
 
-  const [description, setDescription] =
-    useState("");
-
-  const [quantity, setQuantity] =
-    useState(1);
-
-  const [error, setError] =
-    useState("");
+  const { user: currentUser } = useAuth();
 
 
   async function loadData() {
     try {
       const [
         resourcesRes,
+        usersRes,
+        bookingsRes,
         statsRes,
       ] = await Promise.all([
         api.get("/resources"),
+        api.get("/admin/users"),
+        api.get("/admin/bookings"),
         api.get("/admin/dashboard"),
       ]);
 
       setResources(resourcesRes.data);
+      setUsers(usersRes.data);
+      setBookings(bookingsRes.data);
       setStats(statsRes.data);
-
     } catch (error) {
       setError(
         error.response?.data?.detail ||
@@ -56,49 +58,145 @@ function AdminDashboard() {
   }, []);
 
 
-  async function addResource(event) {
+  async function submitResource(event) {
     event.preventDefault();
     setError("");
 
+    const payload = {
+      name,
+      category,
+      description,
+      quantity,
+    };
 
     try {
-      await api.post(
-        "/resources",
-        {
-          name,
-          category,
-          description,
-          quantity,
-        }
-      );
+      if (editingId) {
+        await api.put(
+          `/resources/${editingId}`,
+          payload
+        );
+      } else {
+        await api.post("/resources", payload);
+      }
 
-      setName("");
-      setDescription("");
-      setQuantity(1);
-
+      resetForm();
       await loadData();
-
     } catch (error) {
       setError(
         error.response?.data?.detail ||
-        "Could not add resource."
+        "Could not save resource."
       );
     }
   }
 
 
+  function editResource(resource) {
+    setEditingId(resource.id);
+    setName(resource.name);
+    setCategory(resource.category);
+    setDescription(resource.description);
+    setQuantity(resource.quantity);
+    setError("");
+  }
+
+
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setQuantity(1);
+    setCategory("laptop");
+    setError("");
+  }
+
+
   async function deleteResource(id) {
+    if (!window.confirm("Delete this resource?")) return;
+
     try {
-      await api.delete(
-        `/resources/${id}`
-      );
-
+      await api.delete(`/resources/${id}`);
       await loadData();
-
     } catch (error) {
       setError(
         error.response?.data?.detail ||
         "Could not delete resource."
+      );
+    }
+  }
+
+
+  async function toggleAvailability(resource) {
+    try {
+      await api.patch(
+        `/resources/${resource.id}/availability`,
+        {},
+        {
+          params: {
+            available: !resource.available,
+          },
+        }
+      );
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not update availability."
+      );
+    }
+  }
+
+
+  async function updateUser(id, updates) {
+    try {
+      await api.put(`/admin/users/${id}`, updates);
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not update user."
+      );
+    }
+  }
+
+
+  async function deleteUser(id) {
+    if (!window.confirm("Delete this user?")) return;
+
+    try {
+      await api.delete(`/admin/users/${id}`);
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not delete user."
+      );
+    }
+  }
+
+
+  async function updateBooking(id, status) {
+    try {
+      await api.patch(`/admin/bookings/${id}`, { status });
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not update booking."
+      );
+    }
+  }
+
+
+  async function deleteBooking(id) {
+    if (!window.confirm("Delete this booking?")) return;
+
+    try {
+      await api.delete(`/admin/bookings/${id}`);
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not delete booking."
       );
     }
   }
@@ -111,6 +209,38 @@ function AdminDashboard() {
         Admin Dashboard
       </h1>
 
+      <div className="mb-6 flex gap-2">
+        <button
+          onClick={() => setActiveTab("resources")}
+          className={`rounded-lg px-4 py-2 ${
+            activeTab === "resources"
+              ? "bg-blue-600 text-white"
+              : "border"
+          }`}
+        >
+          Resources
+        </button>
+        <button
+          onClick={() => setActiveTab("users")}
+          className={`rounded-lg px-4 py-2 ${
+            activeTab === "users"
+              ? "bg-blue-600 text-white"
+              : "border"
+          }`}
+        >
+          Users
+        </button>
+        <button
+          onClick={() => setActiveTab("bookings")}
+          className={`rounded-lg px-4 py-2 ${
+            activeTab === "bookings"
+              ? "bg-blue-600 text-white"
+              : "border"
+          }`}
+        >
+          Bookings
+        </button>
+      </div>
 
       {stats && (
         <div className="mb-8 grid gap-4 md:grid-cols-5">
@@ -163,118 +293,254 @@ function AdminDashboard() {
         </div>
       )}
 
-
       {error && (
         <p className="mb-6 rounded-lg bg-red-100 p-4 text-red-700">
           {error}
         </p>
       )}
 
+      {activeTab === "resources" && (
+        <>
 
-      <form
-        onSubmit={addResource}
-        className="mb-8 rounded-xl border bg-white p-6"
-      >
-
-        <h2 className="mb-4 text-xl font-bold">
-          Add New Resource
-        </h2>
-
-        <div className="grid gap-4 md:grid-cols-2">
-
-          <input
-            type="text"
-            placeholder="Resource name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="rounded-lg border px-4 py-3"
-          />
-
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="rounded-lg border px-4 py-3"
+          <form
+            onSubmit={submitResource}
+            className="mb-8 rounded-xl border bg-white p-6"
           >
-            <option value="laptop">Laptop</option>
-            <option value="hardware">Hardware</option>
-            <option value="room">Meeting Room</option>
-          </select>
+            <h2 className="mb-4 text-xl font-bold">
+              {editingId ? "Edit Resource" : "Add New Resource"}
+            </h2>
 
-          <input
-            type="number"
-            placeholder="Quantity"
-            value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value))}
-            min="1"
-            required
-            className="rounded-lg border px-4 py-3"
-          />
+            <div className="grid gap-4 md:grid-cols-2">
 
-          <button
-            type="submit"
-            className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
-          >
-            Add Resource
-          </button>
+              <input
+                type="text"
+                placeholder="Resource name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="rounded-lg border px-4 py-3"
+              />
 
-        </div>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="rounded-lg border px-4 py-3"
+              >
+                <option value="laptop">Laptop</option>
+                <option value="hardware">Hardware</option>
+                <option value="room">Meeting Room</option>
+              </select>
 
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-          className="mt-4 w-full rounded-lg border px-4 py-3"
-          rows="3"
-        />
-
-      </form>
-
-
-      <div>
-
-        <h2 className="mb-4 text-xl font-bold">
-          Resources
-        </h2>
-
-        <div className="space-y-3">
-
-          {resources.map((resource) => (
-            <div
-              key={resource.id}
-              className="flex flex-col justify-between gap-4 rounded-xl border bg-white p-5 md:flex-row md:items-center"
-            >
-
-              <div>
-                <h3 className="font-bold">
-                  {resource.name}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {resource.category} • Qty: {resource.quantity}
-                </p>
-                <p className="mt-1 text-sm text-gray-600">
-                  {resource.description}
-                </p>
-              </div>
+              <input
+                type="number"
+                placeholder="Quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value))}
+                min="1"
+                required
+                className="rounded-lg border px-4 py-3"
+              />
 
               <button
-                onClick={() => deleteResource(resource.id)}
-                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+                type="submit"
+                className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
               >
-                Delete
+                {editingId ? "Update" : "Add"} Resource
               </button>
-
             </div>
-          ))}
 
+            <textarea
+              placeholder="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+              className="mt-4 w-full rounded-lg border px-4 py-3"
+              rows="3"
+            />
+
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-4 rounded-lg border border-gray-400 px-4 py-2 text-gray-600"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </form>
+
+          <div>
+            <h2 className="mb-4 text-xl font-bold">
+              Resources
+            </h2>
+
+            <div className="space-y-3">
+              {resources.map((resource) => (
+                <div
+                  key={resource.id}
+                  className="flex flex-col justify-between gap-4 rounded-xl border bg-white p-5 md:flex-row md:items-center"
+                >
+                  <div>
+                    <h3 className="font-bold">
+                      {resource.name}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {resource.category} • Qty: {resource.quantity}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {resource.description}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {resource.available ? "Available" : "Unavailable"}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleAvailability(resource)}
+                      className={`rounded-lg px-3 py-1 text-xs ${
+                        resource.available
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {resource.available ? "Unavailable" : "Available"}
+                    </button>
+
+                    <button
+                      onClick={() => editResource(resource)}
+                      className="rounded-lg bg-blue-600 px-3 py-1 text-xs text-white"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      onClick={() => deleteResource(resource.id)}
+                      className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === "users" && (
+        <div>
+          <h2 className="mb-4 text-xl font-bold">Users</h2>
+
+          {users.length === 0 ? (
+            <p className="text-gray-600">No users found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="px-4 py-2 text-left">ID</th>
+                    <th className="px-4 py-2 text-left">Name</th>
+                    <th className="px-4 py-2 text-left">Email</th>
+                    <th className="px-4 py-2 text-left">Role</th>
+                    <th className="px-4 py-2 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-b">
+                      <td className="px-4 py-2">{u.id}</td>
+                      <td className="px-4 py-2">{u.name}</td>
+                      <td className="px-4 py-2">{u.email}</td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={u.role}
+                          onChange={(e) =>
+                            updateUser(u.id, { role: e.target.value })
+                          }
+                          className="rounded border px-2 py-1 text-sm"
+                        >
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => deleteUser(u.id)}
+                          disabled={u.id === currentUser?.id}
+                          className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+      )}
 
-      </div>
+      {activeTab === "bookings" && (
+        <div>
+          <h2 className="mb-4 text-xl font-bold">Bookings</h2>
 
+          {bookings.length === 0 ? (
+            <p className="text-gray-600">No bookings found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="px-4 py-2 text-left">ID</th>
+                    <th className="px-4 py-2 text-left">User</th>
+                    <th className="px-4 py-2 text-left">Resource</th>
+                    <th className="px-4 py-2 text-left">Dates</th>
+                    <th className="px-4 py-2 text-left">Status</th>
+                    <th className="px-4 py-2 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookings.map((b) => (
+                    <tr key={b.id} className="border-b">
+                      <td className="px-4 py-2">{b.id}</td>
+                      <td className="px-4 py-2">{b.user_name}</td>
+                      <td className="px-4 py-2">{b.resource_name}</td>
+                      <td className="px-4 py-2">
+                        {b.start_date} → {b.end_date}
+                      </td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={b.status}
+                          onChange={(e) =>
+                            updateBooking(b.id, e.target.value)
+                          }
+                          className="rounded border px-2 py-1 text-sm"
+                        >
+                          <option value="active">Active</option>
+                          <option value="cancelled">Cancelled</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => deleteBooking(b.id)}
+                          className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }
-
 
 export default AdminDashboard;

@@ -14,12 +14,26 @@ class UserLogin(BaseModel):
     password: str = Field(min_length=1, max_length=72)
 
 
+class AdminRegister(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=72)
+    admin_code: str = Field(min_length=1)
+
+
 class UserResponse(BaseModel):
     id: int
     name: str
     email: EmailStr
     role: str
     created_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    role: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -59,3 +73,7 @@ class BookingResponse(BaseModel):
     end_date: date
     status: str
     created_at: datetime | None = None
+
+
+class BookingUpdate(BaseModel):
+    status: str | None = None

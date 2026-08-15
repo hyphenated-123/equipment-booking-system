@@ -35,6 +35,17 @@ export function AuthProvider({ children }) {
     return response.data;
   }
 
+  async function adminRegister(name, email, password, adminCode) {
+    const response = await api.post("/auth/register/admin", {
+      name,
+      email,
+      password,
+      admin_code: adminCode,
+    });
+
+    return response.data;
+  }
+
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -47,6 +58,7 @@ export function AuthProvider({ children }) {
         user,
         login,
         register,
+        adminRegister,
         logout,
       }}
     >

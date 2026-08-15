@@ -15,6 +15,9 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
 )
+ADMIN_REGISTRATION_CODE = os.getenv(
+    "ADMIN_REGISTRATION_CODE", "admin-secret-code"
+)
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not configured")
