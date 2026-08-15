@@ -5,7 +5,7 @@ import {
 
 import api from "../services/api";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("resources");
@@ -54,6 +54,7 @@ function AdminDashboard() {
 
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, []);
 
@@ -544,3 +545,4 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
+

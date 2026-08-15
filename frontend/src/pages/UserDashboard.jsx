@@ -21,7 +21,6 @@ function UserDashboard() {
       );
 
       setBookings(response.data);
-
     } catch (error) {
       setError(
         error.response?.data?.detail ||
@@ -32,6 +31,7 @@ function UserDashboard() {
 
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadBookings();
   }, []);
 
