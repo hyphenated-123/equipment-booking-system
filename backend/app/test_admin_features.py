@@ -464,6 +464,48 @@ def test_create_booking_with_multiple_items(client, user_token, admin_token):
     )
 
 
+def test_admin_upload_resource_image(client, admin_token):
+    resource = client.post(
+        "/api/resources",
+        json={
+            "name": "Photo Res",
+            "category": "laptop",
+            "description": "has photo",
+            "quantity": 2,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resource.status_code == 201
+    resource_id = resource.json()["id"]
+
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+        b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n"
+        b"-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    upload = client.post(
+        f"/api/resources/{resource_id}/image",
+        files={"file": ("photo.png", png, "image/png")},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert upload.status_code == 200
+    assert upload.json()["image_url"].startswith("/uploads/")
+
+    bad = client.post(
+        f"/api/resources/{resource_id}/image",
+        files={"file": ("bad.txt", b"not image", "text/plain")},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert bad.status_code == 400
+
+    client.delete(
+        f"/api/resources/{resource_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+
 @pytest.fixture(scope="module")
 def user_token(client):
     response = client.post(

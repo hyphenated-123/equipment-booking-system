@@ -21,6 +21,9 @@ function AdminDashboard() {
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState(1);
 
+  const [imageFile, setImageFile] = useState(null);
+  const [imageUrl, setImageUrl] = useState("");
+
   const [newCategory, setNewCategory] = useState("");
 
   const [editingId, setEditingId] = useState(null);
@@ -82,13 +85,31 @@ function AdminDashboard() {
     };
 
     try {
+      let resourceId = editingId;
+
       if (editingId) {
         await api.put(
           `/resources/${editingId}`,
           payload
         );
       } else {
-        await api.post("/resources", payload);
+        const response = await api.post("/resources", payload);
+        resourceId = response.data.id;
+      }
+
+      if (imageFile && resourceId) {
+        const formData = new FormData();
+        formData.append("file", imageFile);
+
+        await api.post(
+          `/resources/${resourceId}/image`,
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
       }
 
       resetForm();
@@ -108,6 +129,8 @@ function AdminDashboard() {
     setCategory(resource.category);
     setDescription(resource.description);
     setQuantity(resource.quantity);
+    setImageUrl(resource.image_url || "");
+    setImageFile(null);
     setError("");
   }
 
@@ -118,6 +141,8 @@ function AdminDashboard() {
     setDescription("");
     setQuantity(1);
     setCategory(categories.length > 0 ? categories[0].name : "");
+    setImageFile(null);
+    setImageUrl("");
     setError("");
   }
 
@@ -404,6 +429,18 @@ function AdminDashboard() {
                 className="rounded-lg border px-4 py-3"
               />
 
+              <label className="flex flex-col justify-center rounded-lg border px-4 py-3 text-sm">
+                <span className="mb-1 text-gray-600">
+                  Product photo
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files[0] || null)}
+                  className="text-sm"
+                />
+              </label>
+
               <button
                 type="submit"
                 className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
@@ -420,6 +457,18 @@ function AdminDashboard() {
               className="mt-4 w-full rounded-lg border px-4 py-3"
               rows="3"
             />
+
+            {(imageFile || imageUrl) && (
+              <img
+                src={
+                  imageFile
+                    ? URL.createObjectURL(imageFile)
+                    : `http://127.0.0.1:8000${imageUrl}`
+                }
+                alt="product preview"
+                className="mt-4 h-32 w-32 rounded-lg border object-cover"
+              />
+            )}
 
             {editingId && (
               <button
@@ -443,29 +492,39 @@ function AdminDashboard() {
                   key={resource.id}
                   className="flex flex-col justify-between gap-4 rounded-xl border bg-white p-5 md:flex-row md:items-center"
                 >
-                  <div>
-                    <h3 className="font-bold">
-                      {resource.name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {resource.category}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {resource.description}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Available: {resource.available} • Rented:{" "}
-                      {resource.rented} • Total: {resource.total}
-                    </p>
-                    <p
-                      className={`mt-1 text-xs font-semibold ${
-                        resource.is_active
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {resource.is_active ? "Listed" : "Unlisted"}
-                    </p>
+                  <div className="flex gap-4">
+                    {resource.image_url && (
+                      <img
+                        src={`http://127.0.0.1:8000${resource.image_url}`}
+                        alt={resource.name}
+                        className="h-16 w-16 self-start rounded-lg object-cover"
+                      />
+                    )}
+
+                    <div>
+                      <h3 className="font-bold">
+                        {resource.name}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {resource.category}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {resource.description}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Available: {resource.available} • Rented:{" "}
+                        {resource.rented} • Total: {resource.total}
+                      </p>
+                      <p
+                        className={`mt-1 text-xs font-semibold ${
+                          resource.is_active
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {resource.is_active ? "Listed" : "Unlisted"}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">

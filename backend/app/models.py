@@ -35,6 +35,7 @@ class Resource(Base):
     description = Column(String(500), nullable=False)
     quantity = Column(Integer, nullable=False, default=1)
     available = Column(Boolean, nullable=False, default=True)
+    image_url = Column(String(500), nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

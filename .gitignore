@@ -54,3 +54,11 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Uploaded product images
+backend/uploads/
+frontend/dist/
+
+# Server logs
+backend/server.log
+backend/server.err

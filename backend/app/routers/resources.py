@@ -1,9 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import os
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, oauth2, schemas
 from app.database import get_db
+
+
+UPLOAD_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "uploads",
+)
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 
 router = APIRouter(
@@ -26,6 +36,7 @@ def serialize_resource(resource, rented=0):
         "rented": rented,
         "available": available_units,
         "is_active": resource.available,
+        "image_url": resource.image_url,
         "created_at": resource.created_at,
     }
 
@@ -259,6 +270,56 @@ def update_availability(
         )
 
     resource.available = available
+
+    db.commit()
+    db.refresh(resource)
+
+    rented = rented_for(db, resource_id)
+
+    return serialize_resource(resource, rented)
+
+
+@router.post(
+    "/{resource_id}/image",
+    response_model=schemas.ResourceResponse,
+)
+def upload_resource_image(
+    resource_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(oauth2.get_current_user),
+):
+    oauth2.admin_only(current_user)
+
+    resource = (
+        db.query(models.Resource)
+        .filter(models.Resource.id == resource_id)
+        .first()
+    )
+
+    if resource is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Resource not found",
+        )
+
+    extension = os.path.splitext(file.filename or "")[1].lower()
+
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image type",
+        )
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+    filename = f"resource_{resource_id}_{uuid.uuid4().hex}{extension}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(file_path, "wb") as output:
+        output.write(file.file.read())
+
+    resource.image_url = f"/uploads/{filename}"
 
     db.commit()
     db.refresh(resource)

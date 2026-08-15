@@ -9,13 +9,25 @@ function ResourceCard({
         ? "🔧"
         : "💻";
 
+  const imageSrc = resource.image_url
+    ? `http://127.0.0.1:8000${resource.image_url}`
+    : null;
+
   const outOfStock = resource.available <= 0 || !resource.is_active;
 
   return (
     <article className="overflow-hidden rounded-xl border bg-white shadow-sm">
 
       <div className="flex h-40 items-center justify-center bg-slate-100 text-5xl">
-        {icon}
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={resource.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          icon
+        )}
       </div>
 
 
