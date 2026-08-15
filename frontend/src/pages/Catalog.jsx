@@ -63,7 +63,12 @@ function Catalog() {
 
       return [
         ...prev,
-        { id: resource.id, name: resource.name, quantity: 1 },
+        {
+          id: resource.id,
+          name: resource.name,
+          quantity: 1,
+          available: resource.available,
+        },
       ];
     });
 

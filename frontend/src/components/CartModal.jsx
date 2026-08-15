@@ -14,11 +14,14 @@ function CartModal({
 
   function changeQuantity(id, delta) {
     setCart((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
+      prev.map((item) => {
+        if (item.id !== id) return item;
+
+        const max = item.available ?? Infinity;
+        const next = Math.min(max, Math.max(1, item.quantity + delta));
+
+        return { ...item, quantity: next };
+      })
     );
   }
 
@@ -84,7 +87,8 @@ function CartModal({
                   <button
                     type="button"
                     onClick={() => changeQuantity(item.id, -1)}
-                    className="rounded border px-2 py-0.5"
+                    disabled={item.quantity <= 1}
+                    className="rounded border px-2 py-0.5 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
                   >
                     -
                   </button>
@@ -96,7 +100,8 @@ function CartModal({
                   <button
                     type="button"
                     onClick={() => changeQuantity(item.id, 1)}
-                    className="rounded border px-2 py-0.5"
+                    disabled={item.quantity >= (item.available ?? Infinity)}
+                    className="rounded border px-2 py-0.5 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
                   >
                     +
                   </button>
