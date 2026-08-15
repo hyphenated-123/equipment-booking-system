@@ -9,6 +9,7 @@ function ResourceCard({
         ? "🔧"
         : "💻";
 
+  const outOfStock = resource.available <= 0 || !resource.is_active;
 
   return (
     <article className="overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -29,7 +30,8 @@ function ResourceCard({
         </p>
 
         <p className="mb-1 text-sm text-gray-600">
-          <strong>Quantity:</strong> {resource.quantity}
+          <strong>Available:</strong> {resource.available} /{" "}
+          {resource.total} (Rented: {resource.rented})
         </p>
 
         <p className="mb-4 line-clamp-2 text-sm text-gray-700">
@@ -38,9 +40,10 @@ function ResourceCard({
 
         <button
           onClick={() => onReserve(resource)}
-          className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+          disabled={outOfStock}
+          className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
-          Reserve
+          {outOfStock ? "Unavailable" : "Reserve"}
         </button>
 
       </div>

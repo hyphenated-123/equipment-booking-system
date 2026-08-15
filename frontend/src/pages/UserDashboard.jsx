@@ -86,12 +86,20 @@ function UserDashboard() {
 
               <div>
                 <h2 className="font-bold">
-                  {booking.resource_name}
+                  Booking #{booking.id}
                 </h2>
 
                 <p className="text-sm text-gray-600">
                   {booking.start_date} → {booking.end_date}
                 </p>
+
+                <ul className="mt-1 text-sm text-gray-700">
+                  {booking.items.map((item) => (
+                    <li key={item.id}>
+                      {item.resource_name} × {item.quantity}
+                    </li>
+                  ))}
+                </ul>
 
                 <p className="mt-1 text-sm">
                   Status: {booking.status}

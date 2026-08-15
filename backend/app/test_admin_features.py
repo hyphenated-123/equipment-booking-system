@@ -39,6 +39,16 @@ def setup_database():
     )
     user_ids = [u.id for u in test_users]
     if user_ids:
+        booking_ids = [
+            b.id
+            for b in db.query(models.Booking)
+            .filter(models.Booking.user_id.in_(user_ids))
+            .all()
+        ]
+        if booking_ids:
+            db.query(models.BookingItem).filter(
+                models.BookingItem.booking_id.in_(booking_ids)
+            ).delete(synchronize_session="fetch")
         db.query(models.Booking).filter(
             models.Booking.user_id.in_(user_ids)
         ).delete(synchronize_session="fetch")
@@ -285,7 +295,6 @@ def test_admin_update_booking_status(client, admin_token):
         db.refresh(resource)
     booking = models.Booking(
         user_id=user.id,
-        resource_id=resource.id,
         start_date="2025-01-01",
         end_date="2025-01-03",
         status="active",
@@ -293,6 +302,13 @@ def test_admin_update_booking_status(client, admin_token):
     db.add(booking)
     db.commit()
     db.refresh(booking)
+    booking_item = models.BookingItem(
+        booking_id=booking.id,
+        resource_id=resource.id,
+        quantity=1,
+    )
+    db.add(booking_item)
+    db.commit()
     booking_id = booking.id
     db.close()
 
@@ -309,6 +325,143 @@ def test_admin_update_booking_status(client, admin_token):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert del_response.status_code == 200
+
+
+def test_categories_public_list(client):
+    response = client.get("/api/categories")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+def test_admin_add_and_delete_category(client, admin_token):
+    response = client.post(
+        "/api/categories",
+        json={"name": "Camera"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    assert response.json()["name"] == "Camera"
+    category_id = response.json()["id"]
+
+    list_response = client.get("/api/categories")
+    assert any(c["id"] == category_id for c in list_response.json())
+
+    del_response = client.delete(
+        f"/api/categories/{category_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert del_response.status_code == 200
+
+
+def test_admin_cannot_add_duplicate_category(client, admin_token):
+    response = client.post(
+        "/api/categories",
+        json={"name": "UniqueCat"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    category_id = response.json()["id"]
+
+    duplicate = client.post(
+        "/api/categories",
+        json={"name": "UniqueCat"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert duplicate.status_code == 400
+
+    client.delete(
+        f"/api/categories/{category_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+
+def test_user_cannot_add_category(client, user_token):
+    response = client.post(
+        "/api/categories",
+        json={"name": "Blocked"},
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_resource_status_fields(client, admin_token):
+    response = client.post(
+        "/api/resources",
+        json={
+            "name": "Status Test Resource",
+            "category": "laptop",
+            "description": "status check",
+            "quantity": 4,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["total"] == 4
+    assert data["available"] == 4
+    assert data["rented"] == 0
+    assert data["is_active"] is True
+
+    client.delete(
+        f"/api/resources/{data['id']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+
+def test_create_booking_requires_items(client, user_token):
+    response = client.post(
+        "/api/bookings",
+        json={
+            "start_date": "2025-03-01",
+            "end_date": "2025-03-03",
+            "items": [],
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert response.status_code == 400
+
+
+def test_create_booking_with_multiple_items(client, user_token, admin_token):
+    res = client.post(
+        "/api/resources",
+        json={
+            "name": "Cart Res A",
+            "category": "laptop",
+            "description": "a",
+            "quantity": 10,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 201
+    resource_id = res.json()["id"]
+
+    response = client.post(
+        "/api/bookings",
+        json={
+            "start_date": "2025-02-01",
+            "end_date": "2025-02-05",
+            "items": [{"resource_id": resource_id, "quantity": 2}],
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["quantity"] == 2
+    assert data["items"][0]["resource_id"] == resource_id
+
+    status = client.get(f"/api/resources/{resource_id}").json()
+    assert status["rented"] == 2
+    assert status["available"] == 8
+
+    client.delete(
+        f"/api/admin/bookings/{data['id']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.delete(
+        f"/api/resources/{resource_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
 
 
 @pytest.fixture(scope="module")
@@ -338,6 +491,16 @@ def test_cleanup(client, admin_token):
     )
     user_ids = [u.id for u in test_users]
     if user_ids:
+        booking_ids = [
+            b.id
+            for b in db.query(models.Booking)
+            .filter(models.Booking.user_id.in_(user_ids))
+            .all()
+        ]
+        if booking_ids:
+            db.query(models.BookingItem).filter(
+                models.BookingItem.booking_id.in_(booking_ids)
+            ).delete(synchronize_session="fetch")
         db.query(models.Booking).filter(
             models.Booking.user_id.in_(user_ids)
         ).delete(synchronize_session="fetch")
@@ -345,7 +508,9 @@ def test_cleanup(client, admin_token):
         models.User.email.in_([ADMIN_EMAIL, USER_EMAIL])
     ).delete(synchronize_session="fetch")
     db.query(models.Resource).filter(
-        models.Resource.name.in_(["Test Laptop", "Temp Resource"])
+        models.Resource.name.in_(
+            ["Test Laptop", "Temp Resource", "Cart Res A"]
+        )
     ).delete(synchronize_session="fetch")
     db.commit()
     db.close()

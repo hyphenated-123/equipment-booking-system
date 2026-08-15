@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models, oauth2, schemas
 from app.database import get_db
+from app.routers.bookings import booking_to_response
 
 
 router = APIRouter(
@@ -133,16 +134,7 @@ def get_all_bookings(
     )
 
     return [
-        {
-            "id": booking.id,
-            "user_id": booking.user_id,
-            "user_name": booking.user.name,
-            "resource_id": booking.resource_id,
-            "resource_name": booking.resource.name,
-            "start_date": booking.start_date,
-            "end_date": booking.end_date,
-            "status": booking.status,
-        }
+        booking_to_response(booking)
         for booking in bookings
     ]
 
@@ -183,15 +175,7 @@ def update_booking(
     db.commit()
     db.refresh(booking)
 
-    return {
-        "id": booking.id,
-        "resource_id": booking.resource_id,
-        "resource_name": booking.resource.name,
-        "start_date": booking.start_date,
-        "end_date": booking.end_date,
-        "status": booking.status,
-        "created_at": booking.created_at,
-    }
+    return booking_to_response(booking)
 
 
 @router.delete("/bookings/{booking_id}")

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, oauth2, schemas
@@ -9,6 +10,68 @@ router = APIRouter(
     prefix="/resources",
     tags=["Resources"],
 )
+
+
+def serialize_resource(resource, rented=0):
+    total = resource.quantity
+    available_units = max(0, total - rented) if resource.available else 0
+
+    return {
+        "id": resource.id,
+        "name": resource.name,
+        "category": resource.category,
+        "description": resource.description,
+        "quantity": total,
+        "total": total,
+        "rented": rented,
+        "available": available_units,
+        "is_active": resource.available,
+        "created_at": resource.created_at,
+    }
+
+
+def rented_counts(db, resources):
+    ids = [resource.id for resource in resources]
+    result = {}
+
+    if ids:
+        rows = (
+            db.query(
+                models.BookingItem.resource_id,
+                func.sum(models.BookingItem.quantity),
+            )
+            .join(
+                models.Booking,
+                models.Booking.id == models.BookingItem.booking_id,
+            )
+            .filter(
+                models.BookingItem.resource_id.in_(ids),
+                models.Booking.status == "active",
+            )
+            .group_by(models.BookingItem.resource_id)
+            .all()
+        )
+
+        result = {resource_id: int(count) for resource_id, count in rows}
+
+    return result
+
+
+def rented_for(db, resource_id):
+    rented = (
+        db.query(func.sum(models.BookingItem.quantity))
+        .join(
+            models.Booking,
+            models.Booking.id == models.BookingItem.booking_id,
+        )
+        .filter(
+            models.BookingItem.resource_id == resource_id,
+            models.Booking.status == "active",
+        )
+        .scalar()
+    )
+
+    return int(rented) if rented else 0
 
 
 @router.get(
@@ -38,13 +101,20 @@ def get_resources(
 
     offset = (page - 1) * limit
 
-    return (
+    resources = (
         query
         .order_by(models.Resource.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
     )
+
+    rented = rented_counts(db, resources)
+
+    return [
+        serialize_resource(resource, rented.get(resource.id, 0))
+        for resource in resources
+    ]
 
 
 @router.get(
@@ -67,7 +137,9 @@ def get_resource(
             detail="Resource not found",
         )
 
-    return resource
+    rented = rented_for(db, resource_id)
+
+    return serialize_resource(resource, rented)
 
 
 @router.post(
@@ -94,7 +166,7 @@ def create_resource(
     db.commit()
     db.refresh(resource)
 
-    return resource
+    return serialize_resource(resource)
 
 
 @router.put(
@@ -129,7 +201,9 @@ def update_resource(
     db.commit()
     db.refresh(resource)
 
-    return resource
+    rented = rented_for(db, resource_id)
+
+    return serialize_resource(resource, rented)
 
 
 @router.delete(
@@ -189,4 +263,6 @@ def update_availability(
     db.commit()
     db.refresh(resource)
 
-    return resource
+    rented = rented_for(db, resource_id)
+
+    return serialize_resource(resource, rented)

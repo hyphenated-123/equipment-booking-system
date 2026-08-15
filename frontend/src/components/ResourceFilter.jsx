@@ -3,6 +3,7 @@ function ResourceFilter({
   setSearch,
   category,
   setCategory,
+  categories,
 }) {
   return (
     <div className="mb-8 grid gap-4 rounded-xl border bg-white p-5 md:grid-cols-2">
@@ -19,9 +20,11 @@ function ResourceFilter({
         className="rounded-lg border px-4 py-3"
       >
         <option value="all">All categories</option>
-        <option value="laptop">Laptops</option>
-        <option value="hardware">Hardware</option>
-        <option value="room">Meeting Rooms</option>
+        {categories.map((cat) => (
+          <option key={cat.id} value={cat.name}>
+            {cat.name}
+          </option>
+        ))}
       </select>
     </div>
   );

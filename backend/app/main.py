@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app import models
-from app.routers import auth, resources, bookings, admin
+from app.routers import auth, resources, bookings, admin, categories
 
 
 Base.metadata.create_all(bind=engine)
@@ -31,6 +31,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(resources.router, prefix="/api")
 app.include_router(bookings.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(categories.router, prefix="/api")
 
 
 @app.get("/")

@@ -40,9 +40,20 @@ class Resource(Base):
         server_default=func.now(),
     )
 
-    bookings = relationship(
-        "Booking",
+    booking_items = relationship(
+        "BookingItem",
         back_populates="resource",
+    )
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
     )
 
 
@@ -53,11 +64,6 @@ class Booking(Base):
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False,
-    )
-    resource_id = Column(
-        Integer,
-        ForeignKey("resources.id"),
         nullable=False,
     )
     start_date = Column(Date, nullable=False)
@@ -77,7 +83,35 @@ class Booking(Base):
         back_populates="bookings",
     )
 
+    items = relationship(
+        "BookingItem",
+        back_populates="booking",
+        cascade="all, delete-orphan",
+    )
+
+
+class BookingItem(Base):
+    __tablename__ = "booking_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(
+        Integer,
+        ForeignKey("bookings.id"),
+        nullable=False,
+    )
+    resource_id = Column(
+        Integer,
+        ForeignKey("resources.id"),
+        nullable=False,
+    )
+    quantity = Column(Integer, nullable=False, default=1)
+
+    booking = relationship(
+        "Booking",
+        back_populates="items",
+    )
+
     resource = relationship(
         "Resource",
-        back_populates="bookings",
+        back_populates="booking_items",
     )

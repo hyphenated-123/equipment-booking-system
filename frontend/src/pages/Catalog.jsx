@@ -1,27 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import ResourceCard from "../components/ResourceCard";
 import ResourceFilter from "../components/ResourceFilter";
-import ReservationModal from "../components/ReservationModal";
+import CartModal from "../components/CartModal";
 import api from "../services/api";
 
 function Catalog() {
   const [resources, setResources] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
-  const [selectedResource, setSelectedResource] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadResources() {
+    async function loadData() {
       try {
-        const response = await api.get("/resources");
-        setResources(response.data);
+        const [resourcesRes, categoriesRes] = await Promise.all([
+          api.get("/resources"),
+          api.get("/categories"),
+        ]);
+
+        setResources(resourcesRes.data);
+        setCategories(categoriesRes.data);
       } catch {
         setError("Could not load resources.");
       }
     }
 
-    loadResources();
+    loadData();
   }, []);
 
   const filteredResources = useMemo(() => {
@@ -42,13 +49,35 @@ function Catalog() {
     });
   }, [resources, search, category]);
 
-  async function createReservation(data) {
+  function addToCart(resource) {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === resource.id);
+
+      if (existing) {
+        return prev.map((item) =>
+          item.id === resource.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...prev,
+        { id: resource.id, name: resource.name, quantity: 1 },
+      ];
+    });
+
+    setShowCart(true);
+  }
+
+  async function submitCart(data) {
     try {
       await api.post("/bookings", data);
 
       alert("Reservation created successfully.");
 
-      setSelectedResource(null);
+      setCart([]);
+      setShowCart(false);
     } catch (error) {
       alert(
         error.response?.data?.detail ||
@@ -57,16 +86,27 @@ function Catalog() {
     }
   }
 
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">
-          Resource Catalog
-        </h1>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">
+            Resource Catalog
+          </h1>
 
-        <p className="mt-2 text-slate-600">
-          Find and reserve available equipment and rooms.
-        </p>
+          <p className="mt-2 text-slate-600">
+            Find and reserve available equipment and rooms.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowCart(true)}
+          className="rounded-lg border border-blue-600 px-4 py-2 font-semibold text-blue-600 hover:bg-blue-50"
+        >
+          Cart ({cartCount})
+        </button>
       </div>
 
       <ResourceFilter
@@ -74,6 +114,7 @@ function Catalog() {
         setSearch={setSearch}
         category={category}
         setCategory={setCategory}
+        categories={categories}
       />
 
       {error && (
@@ -87,16 +128,17 @@ function Catalog() {
           <ResourceCard
             key={resource.id}
             resource={resource}
-            onReserve={setSelectedResource}
+            onReserve={addToCart}
           />
         ))}
       </div>
 
-      {selectedResource && (
-        <ReservationModal
-          resource={selectedResource}
-          onClose={() => setSelectedResource(null)}
-          onSubmit={createReservation}
+      {showCart && (
+        <CartModal
+          cart={cart}
+          setCart={setCart}
+          onClose={() => setShowCart(false)}
+          onSubmit={submitCart}
         />
       )}
     </main>

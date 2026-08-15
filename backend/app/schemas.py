@@ -53,25 +53,55 @@ class ResourceCreate(BaseModel):
 
 class ResourceResponse(ResourceCreate):
     id: int
-    available: bool
+    total: int
+    rented: int
+    available: int
+    is_active: bool
     created_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class BookingCreate(BaseModel):
+class CategoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+    created_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BookingItemCreate(BaseModel):
     resource_id: int
+    quantity: int = Field(default=1, ge=1)
+
+
+class BookingCreate(BaseModel):
     start_date: date
     end_date: date
+    items: list[BookingItemCreate]
+
+
+class BookingItemResponse(BaseModel):
+    id: int
+    resource_id: int
+    resource_name: str
+    quantity: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BookingResponse(BaseModel):
     id: int
-    resource_id: int
-    resource_name: str
+    user_id: int
+    user_name: str
     start_date: date
     end_date: date
     status: str
+    items: list[BookingItemResponse]
     created_at: datetime | None = None
 
 

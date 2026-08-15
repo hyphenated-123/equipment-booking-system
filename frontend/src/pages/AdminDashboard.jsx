@@ -13,12 +13,15 @@ function AdminDashboard() {
   const [resources, setResources] = useState([]);
   const [users, setUsers] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState(null);
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("laptop");
+  const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState(1);
+
+  const [newCategory, setNewCategory] = useState("");
 
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -33,17 +36,24 @@ function AdminDashboard() {
         usersRes,
         bookingsRes,
         statsRes,
+        categoriesRes,
       ] = await Promise.all([
         api.get("/resources"),
         api.get("/admin/users"),
         api.get("/admin/bookings"),
         api.get("/admin/dashboard"),
+        api.get("/categories"),
       ]);
 
       setResources(resourcesRes.data);
       setUsers(usersRes.data);
       setBookings(bookingsRes.data);
       setStats(statsRes.data);
+      setCategories(categoriesRes.data);
+
+      if (!editingId && !category && categoriesRes.data.length > 0) {
+        setCategory(categoriesRes.data[0].name);
+      }
     } catch (error) {
       setError(
         error.response?.data?.detail ||
@@ -56,6 +66,7 @@ function AdminDashboard() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -106,7 +117,7 @@ function AdminDashboard() {
     setName("");
     setDescription("");
     setQuantity(1);
-    setCategory("laptop");
+    setCategory(categories.length > 0 ? categories[0].name : "");
     setError("");
   }
 
@@ -133,7 +144,7 @@ function AdminDashboard() {
         {},
         {
           params: {
-            available: !resource.available,
+            available: !resource.is_active,
           },
         }
       );
@@ -142,6 +153,42 @@ function AdminDashboard() {
       setError(
         error.response?.data?.detail ||
         "Could not update availability."
+      );
+    }
+  }
+
+
+  async function addCategory(event) {
+    event.preventDefault();
+    setError("");
+
+    const trimmed = newCategory.trim();
+
+    if (!trimmed) return;
+
+    try {
+      await api.post("/categories", { name: trimmed });
+      setNewCategory("");
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not add category."
+      );
+    }
+  }
+
+
+  async function deleteCategory(id) {
+    if (!window.confirm("Delete this category?")) return;
+
+    try {
+      await api.delete(`/categories/${id}`);
+      await loadData();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+        "Could not delete category."
       );
     }
   }
@@ -210,7 +257,7 @@ function AdminDashboard() {
         Admin Dashboard
       </h1>
 
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         <button
           onClick={() => setActiveTab("resources")}
           className={`rounded-lg px-4 py-2 ${
@@ -220,6 +267,16 @@ function AdminDashboard() {
           }`}
         >
           Resources
+        </button>
+        <button
+          onClick={() => setActiveTab("categories")}
+          className={`rounded-lg px-4 py-2 ${
+            activeTab === "categories"
+              ? "bg-blue-600 text-white"
+              : "border"
+          }`}
+        >
+          Categories
         </button>
         <button
           onClick={() => setActiveTab("users")}
@@ -327,9 +384,14 @@ function AdminDashboard() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="rounded-lg border px-4 py-3"
               >
-                <option value="laptop">Laptop</option>
-                <option value="hardware">Hardware</option>
-                <option value="room">Meeting Room</option>
+                {categories.length === 0 && (
+                  <option value="">No categories</option>
+                )}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
               </select>
 
               <input
@@ -386,26 +448,36 @@ function AdminDashboard() {
                       {resource.name}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {resource.category} • Qty: {resource.quantity}
+                      {resource.category}
                     </p>
                     <p className="mt-1 text-sm text-gray-600">
                       {resource.description}
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      {resource.available ? "Available" : "Unavailable"}
+                      Available: {resource.available} • Rented:{" "}
+                      {resource.rented} • Total: {resource.total}
+                    </p>
+                    <p
+                      className={`mt-1 text-xs font-semibold ${
+                        resource.is_active
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {resource.is_active ? "Listed" : "Unlisted"}
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => toggleAvailability(resource)}
                       className={`rounded-lg px-3 py-1 text-xs ${
-                        resource.available
+                        resource.is_active
                           ? "bg-yellow-100 text-yellow-700"
                           : "bg-green-100 text-green-700"
                       }`}
                     >
-                      {resource.available ? "Unavailable" : "Available"}
+                      {resource.is_active ? "Unlist" : "List"}
                     </button>
 
                     <button
@@ -427,6 +499,57 @@ function AdminDashboard() {
             </div>
           </div>
         </>
+      )}
+
+      {activeTab === "categories" && (
+        <div>
+          <h2 className="mb-4 text-xl font-bold">
+            Categories
+          </h2>
+
+          <form
+            onSubmit={addCategory}
+            className="mb-6 flex gap-3 rounded-xl border bg-white p-5"
+          >
+            <input
+              type="text"
+              placeholder="New category name"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              required
+              className="flex-1 rounded-lg border px-4 py-3"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+            >
+              Add Category
+            </button>
+          </form>
+
+          <div className="space-y-3">
+            {categories.length === 0 ? (
+              <p className="text-gray-600">
+                No categories yet.
+              </p>
+            ) : (
+              categories.map((cat) => (
+                <div
+                  key={cat.id}
+                  className="flex items-center justify-between rounded-xl border bg-white p-5"
+                >
+                  <span className="font-bold">{cat.name}</span>
+                  <button
+                    onClick={() => deleteCategory(cat.id)}
+                    className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       )}
 
       {activeTab === "users" && (
@@ -496,7 +619,7 @@ function AdminDashboard() {
                   <tr className="border-b">
                     <th className="px-4 py-2 text-left">ID</th>
                     <th className="px-4 py-2 text-left">User</th>
-                    <th className="px-4 py-2 text-left">Resource</th>
+                    <th className="px-4 py-2 text-left">Items</th>
                     <th className="px-4 py-2 text-left">Dates</th>
                     <th className="px-4 py-2 text-left">Status</th>
                     <th className="px-4 py-2 text-left">Actions</th>
@@ -507,7 +630,15 @@ function AdminDashboard() {
                     <tr key={b.id} className="border-b">
                       <td className="px-4 py-2">{b.id}</td>
                       <td className="px-4 py-2">{b.user_name}</td>
-                      <td className="px-4 py-2">{b.resource_name}</td>
+                      <td className="px-4 py-2">
+                        <ul className="text-sm">
+                          {b.items.map((item) => (
+                            <li key={item.id}>
+                              {item.resource_name} × {item.quantity}
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
                       <td className="px-4 py-2">
                         {b.start_date} → {b.end_date}
                       </td>
@@ -545,4 +676,3 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
-

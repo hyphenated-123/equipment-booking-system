@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app import models, oauth2, schemas
@@ -15,13 +15,41 @@ router = APIRouter(
 def booking_to_response(booking):
     return {
         "id": booking.id,
-        "resource_id": booking.resource_id,
-        "resource_name": booking.resource.name,
+        "user_id": booking.user_id,
+        "user_name": booking.user.name,
         "start_date": booking.start_date,
         "end_date": booking.end_date,
         "status": booking.status,
+        "items": [
+            {
+                "id": item.id,
+                "resource_id": item.resource_id,
+                "resource_name": item.resource.name,
+                "quantity": item.quantity,
+            }
+            for item in booking.items
+        ],
         "created_at": booking.created_at,
     }
+
+
+def rented_quantity(db, resource_id, start_date, end_date):
+    rented = (
+        db.query(func.sum(models.BookingItem.quantity))
+        .join(
+            models.Booking,
+            models.Booking.id == models.BookingItem.booking_id,
+        )
+        .filter(
+            models.BookingItem.resource_id == resource_id,
+            models.Booking.status == "active",
+            models.Booking.start_date <= end_date,
+            models.Booking.end_date >= start_date,
+        )
+        .scalar()
+    )
+
+    return int(rented) if rented else 0
 
 
 @router.post(
@@ -40,52 +68,79 @@ def create_booking(
             detail="End date cannot be before start date",
         )
 
-    resource = (
-        db.query(models.Resource)
-        .filter(models.Resource.id == data.resource_id)
-        .first()
-    )
-
-    if resource is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Resource not found",
-        )
-
-    if not resource.available:
+    if not data.items:
         raise HTTPException(
             status_code=400,
-            detail="Resource is currently unavailable",
+            detail="Booking must contain at least one item",
         )
 
-    conflict = (
-        db.query(models.Booking)
-        .filter(
-            and_(
-                models.Booking.resource_id == data.resource_id,
-                models.Booking.status == "active",
-                models.Booking.start_date <= data.end_date,
-                models.Booking.end_date >= data.start_date,
+    requested = {}
+
+    for item in data.items:
+        if item.quantity < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Quantity must be at least 1",
             )
-        )
-        .first()
-    )
 
-    if conflict:
-        raise HTTPException(
-            status_code=409,
-            detail="Resource is already booked for the selected dates",
+        requested[item.resource_id] = (
+            requested.get(item.resource_id, 0) + item.quantity
         )
+
+    for resource_id, quantity in requested.items():
+        resource = (
+            db.query(models.Resource)
+            .filter(models.Resource.id == resource_id)
+            .first()
+        )
+
+        if resource is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Resource {resource_id} not found",
+            )
+
+        if not resource.available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Resource '{resource.name}' is unavailable",
+            )
+
+        rented = rented_quantity(
+            db,
+            resource_id,
+            data.start_date,
+            data.end_date,
+        )
+
+        if resource.quantity - rented < quantity:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Not enough of '{resource.name}' available "
+                    "for the selected dates"
+                ),
+            )
 
     booking = models.Booking(
         user_id=current_user.id,
-        resource_id=data.resource_id,
         start_date=data.start_date,
         end_date=data.end_date,
         status="active",
     )
 
     db.add(booking)
+    db.flush()
+
+    for resource_id, quantity in requested.items():
+        db.add(
+            models.BookingItem(
+                booking_id=booking.id,
+                resource_id=resource_id,
+                quantity=quantity,
+            )
+        )
+
     db.commit()
     db.refresh(booking)
 
@@ -107,10 +162,7 @@ def my_bookings(
         .all()
     )
 
-    return [
-        booking_to_response(booking)
-        for booking in bookings
-    ]
+    return [booking_to_response(booking) for booking in bookings]
 
 
 @router.get(
