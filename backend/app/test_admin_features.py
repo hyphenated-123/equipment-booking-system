@@ -524,6 +524,58 @@ def admin_token(client):
     return response.json()["access_token"]
 
 
+def test_create_booking_with_time(client, user_token, admin_token):
+    res = client.post(
+        "/api/resources",
+        json={
+            "name": "Time Res",
+            "category": "laptop",
+            "description": "t",
+            "quantity": 5,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 201
+    resource_id = res.json()["id"]
+
+    booking = client.post(
+        "/api/bookings",
+        json={
+            "start_date": "2026-10-01",
+            "end_date": "2026-10-01",
+            "start_time": "09:00:00",
+            "end_time": "17:00:00",
+            "items": [{"resource_id": resource_id, "quantity": 1}],
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert booking.status_code == 201
+    assert booking.json()["start_time"] == "09:00:00"
+    assert booking.json()["end_time"] == "17:00:00"
+
+    bad = client.post(
+        "/api/bookings",
+        json={
+            "start_date": "2026-10-02",
+            "end_date": "2026-10-02",
+            "start_time": "18:00:00",
+            "end_time": "10:00:00",
+            "items": [{"resource_id": resource_id, "quantity": 1}],
+        },
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert bad.status_code == 400
+
+    client.delete(
+        f"/api/admin/bookings/{booking.json()['id']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    client.delete(
+        f"/api/resources/{resource_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+
 def test_cleanup(client, admin_token):
     db = SessionLocal()
     test_users = (

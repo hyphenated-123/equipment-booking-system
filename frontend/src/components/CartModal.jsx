@@ -9,6 +9,8 @@ function CartModal({
 }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [error, setError] = useState("");
 
 
@@ -44,6 +46,16 @@ function CartModal({
       return;
     }
 
+    if (
+      startTime &&
+      endTime &&
+      startDate === endDate &&
+      endTime <= startTime
+    ) {
+      setError("End time must be after start time.");
+      return;
+    }
+
     if (cart.length === 0) {
       setError("Your cart is empty.");
       return;
@@ -52,6 +64,8 @@ function CartModal({
     onSubmit({
       start_date: startDate,
       end_date: endDate,
+      start_time: startTime || null,
+      end_time: endTime || null,
       items: cart.map((item) => ({
         resource_id: item.id,
         quantity: item.quantity,
@@ -123,30 +137,58 @@ function CartModal({
           <p className="mb-3 text-sm text-red-600">{error}</p>
         )}
 
-        <div className="mb-4">
-          <label className="mb-2 block font-semibold">
-            Start Date
-          </label>
-          <input
-            type="date"
-            required
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full rounded-lg border px-4 py-2"
-          />
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-2 block font-semibold">
+              Start Date
+            </label>
+            <input
+              type="date"
+              required
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-lg border px-4 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-semibold">
+              Start Time
+            </label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full rounded-lg border px-4 py-2"
+            />
+          </div>
         </div>
 
-        <div className="mb-6">
-          <label className="mb-2 block font-semibold">
-            End Date
-          </label>
-          <input
-            type="date"
-            required
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-full rounded-lg border px-4 py-2"
-          />
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-2 block font-semibold">
+              End Date
+            </label>
+            <input
+              type="date"
+              required
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded-lg border px-4 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-semibold">
+              End Time
+            </label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full rounded-lg border px-4 py-2"
+            />
+          </div>
         </div>
 
         <div className="flex gap-3">

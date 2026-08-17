@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Date, DateTime
+from sqlalchemy import Boolean, Column, Date, DateTime, Time
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -69,6 +69,8 @@ class Booking(Base):
     )
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
     status = Column(
         String(20),
         nullable=False,

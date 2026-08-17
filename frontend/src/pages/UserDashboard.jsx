@@ -90,7 +90,10 @@ function UserDashboard() {
                 </h2>
 
                 <p className="text-sm text-gray-600">
-                  {booking.start_date} → {booking.end_date}
+                  {booking.start_date}
+                  {booking.start_time ? ` ${booking.start_time}` : ""} →{" "}
+                  {booking.end_date}
+                  {booking.end_time ? ` ${booking.end_time}` : ""}
                 </p>
 
                 <ul className="mt-1 text-sm text-gray-700">

@@ -699,7 +699,10 @@ function AdminDashboard() {
                         </ul>
                       </td>
                       <td className="px-4 py-2">
-                        {b.start_date} → {b.end_date}
+                        {b.start_date}
+                        {b.start_time ? ` ${b.start_time}` : ""} →{" "}
+                        {b.end_date}
+                        {b.end_time ? ` ${b.end_time}` : ""}
                       </td>
                       <td className="px-4 py-2">
                         <select

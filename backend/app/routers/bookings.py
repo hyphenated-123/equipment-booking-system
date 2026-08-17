@@ -19,6 +19,8 @@ def booking_to_response(booking):
         "user_name": booking.user.name,
         "start_date": booking.start_date,
         "end_date": booking.end_date,
+        "start_time": booking.start_time,
+        "end_time": booking.end_time,
         "status": booking.status,
         "items": [
             {
@@ -66,6 +68,17 @@ def create_booking(
         raise HTTPException(
             status_code=400,
             detail="End date cannot be before start date",
+        )
+
+    if (
+        data.start_time
+        and data.end_time
+        and data.start_date == data.end_date
+        and data.end_time <= data.start_time
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="End time must be after start time",
         )
 
     if not data.items:
@@ -126,6 +139,8 @@ def create_booking(
         user_id=current_user.id,
         start_date=data.start_date,
         end_date=data.end_date,
+        start_time=data.start_time,
+        end_time=data.end_time,
         status="active",
     )
 

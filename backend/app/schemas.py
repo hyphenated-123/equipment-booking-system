@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -83,6 +83,8 @@ class BookingItemCreate(BaseModel):
 class BookingCreate(BaseModel):
     start_date: date
     end_date: date
+    start_time: time | None = None
+    end_time: time | None = None
     items: list[BookingItemCreate]
 
 
@@ -101,6 +103,8 @@ class BookingResponse(BaseModel):
     user_name: str
     start_date: date
     end_date: date
+    start_time: time | None = None
+    end_time: time | None = None
     status: str
     items: list[BookingItemResponse]
     created_at: datetime | None = None
