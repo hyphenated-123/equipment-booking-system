@@ -71,7 +71,10 @@ function Catalog() {
         },
       ];
     });
+  }
 
+  function reserveNow(resource) {
+    addToCart(resource);
     setShowCart(true);
   }
 
@@ -133,7 +136,8 @@ function Catalog() {
           <ResourceCard
             key={resource.id}
             resource={resource}
-            onReserve={addToCart}
+            onAddToCart={addToCart}
+            onReserve={reserveNow}
           />
         ))}
       </div>

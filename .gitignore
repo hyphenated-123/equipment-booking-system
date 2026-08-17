@@ -62,3 +62,7 @@ frontend/dist/
 # Server logs
 backend/server.log
 backend/server.err
+
+# Tool/internal
+.context-bridge/
+.v3code/
